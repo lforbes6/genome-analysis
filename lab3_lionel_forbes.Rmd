@@ -1,0 +1,111 @@
+---
+title: "lab3_lionel_forbes"
+author: "Lionel Forbes"
+date: "2/10/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+SNPs<- read.table("23andMe_complete.txt", header = TRUE, sep = "\t")
+str(SNPs)
+```
+
+```{r}
+class(SNPs)
+```
+
+```{r}
+typeof(SNPs)
+```
+
+```{r}
+str(SNPs)
+```
+
+```{r}
+summary(SNPs)
+```
+
+```{r}
+class(SNPs$genotype)
+```
+
+```{r}
+typeof(SNPs$genotype)
+```
+
+```{r}
+str(SNPs$genotype)
+```
+
+```{r}
+summary(SNPs$genotype)
+```
+
+```{r}
+summary(SNPs$chromosome)
+```
+
+```{r}
+summary(SNPs$position)
+```
+
+```{r}
+summary(SNPs$chromosome)
+```
+
+```{r}
+SNPs$chromosome = ordered(SNPs$chromosome, levels=c(seq(1, 22), "X", "Y", "MT"))
+summary(SNPs$chromosome)
+```
+
+
+Exercise 1
+```{r}
+ggplot(SNPs, aes(x=chromosome)) +
+  geom_bar()
+```
+
+Exercise 2
+```{r}
+SNPs$chromosome = ordered(SNPs$chromosome, levels=c(seq(1, 22), "X", "Y", "MT"))
+summary(SNPs$chromosome)
+summary(SNPs)
+
+ggplot(SNPs, aes(x=chromosome)) +
+  geom_bar()
+```
+
+Exercise 3
+```{r}
+ggplot(SNPs, aes(x=chromosome, fill =  genotype)) +
+  geom_bar()
+```
+
+
+Exercise 4
+```{r}
+ggplot(SNPs, aes(x=chromosome, fill =  genotype)) +
+  geom_bar(position = "fill")
+```
+
+Exercise 5
+```{r}
+ggplot(SNPs, aes(x=chromosome, fill =  genotype)) +
+  geom_bar(position = "dodge")
+```
+
+Exercise 6
+```{r}
+ggplot(SNPs, aes(x=chromosome, fill =  genotype)) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~genotype)
+```
+

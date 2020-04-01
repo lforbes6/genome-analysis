@@ -1,0 +1,293 @@
+---
+title: "lab7"
+author: "Lionel Forbes"
+date: "3/4/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install(version = "3.10")
+
+```
+Load the data package with the example data:
+```{r}
+dir <- system.file("extdata", package="airway", mustWork=TRUE)
+
+list.files(dir)
+```
+List files in quant dir
+```{r}
+list.files(file.path(dir, "quants"))
+```
+```{r}
+csvfile <- file.path(dir, "sample_table.csv")
+coldata <- read.csv(csvfile, row.names=1, stringsAsFactors=FALSE)
+coldata
+
+```
+
+Load and read.csv:
+```{r}
+coldata <- coldata[1:2,]
+coldata$names <- coldata$Run
+coldata$files <- file.path(dir, "quants", coldata$names, "quant.sf.gz")
+file.exists(coldata$files)
+```
+Load the tximeta package and run its main function
+```{r}
+library("tximeta")
+se <- tximeta(coldata)
+```
+
+```{r}
+dim(se)
+```
+
+```{r}
+head(rownames(se))
+```
+
+```{r}
+gse <- summarizeToGene(se)
+```
+Now we can check that the dimensions are reduced and the row IDs are now gene IDs:
+```{r}
+dim(gse)
+```
+ 
+```{r}
+head(rownames(gse))
+```
+We now will load the full count matrix corresponding to all samples and all data, which is provided in the airway package, and will continue the analysis with the full data object. We can investigate this SummarizedExperiment object by looking at the matrices in the assays slot, the phenotypic data about the samples in colData slot, and the data about the genes in the rowRanges slot.
+```{r}
+data(gse)
+gse
+```
+The counts are the first matrix, so we can examine them with just assay
+```{r}
+assayNames(gse)
+head(assay(gse), 3)
+colSums(assay(gse))
+```
+The counts are the first matrix, so we can examine them with just assay
+```{r}
+rowRanges(gse)
+```
+The rowRanges also contains metadata about the sequences (chromosomes in our case) in the seqinfo slot:
+```{r}
+seqinfo(rowRanges(gse))
+```
+
+The colData for the SummarizedExperiment reflects the data.frame that was provided to the tximeta function for importing the quantification data.
+```{r}
+colData(gse)
+```
+We can see each of the columns just using the $ directly on the SummarizedExperiment or DESeqDataSet.
+```{r}
+gse$donor
+```
+
+```{r}
+gse$condition
+```
+We can rename our variables if we want. Let’s use cell to denote the donor cell line, and dex to denote the treatment condition.
+```{r}
+gse$cell <- gse$donor
+gse$dex <- gse$condition
+```
+
+We can also change the names of the levels. It is critical when one renames levels to not change the order. Here we will rename "Untreated" as "untrt" and "Dexamethasone" as "trt":
+```{r}
+levels(gse$dex)
+```
+
+```{r}
+levels(gse$dex) <- c("untrt", "trt")
+```
+While levels(...) <- above was simply for renaming the character strings associated with levels, relevel is a very different function, which decides how the variables will be coded, and how contrasts will be computed. For a two-group comparison, the use of relevel to change the reference level would flip the sign of a coefficient associated with a contrast between the two groups.
+```{r}
+library("magrittr")
+gse$dex %<>% relevel("untrt")
+gse$dex
+```
+
+%<>% is the compound assignment pipe-operator from the magrittr package, the above line of code is a concise way of saying:
+```{r}
+gse$dex <- relevel(gse$dex, "untrt")
+```
+
+3.1
+Again, we can quickly check the millions of fragments that could be mapped by Salmon to the genes (the second argument of round tells how many decimal points to keep).
+```{r}
+round( colSums(assay(gse)) / 1e6, 1 )
+```
+
+Once we have our fully annotated SummarizedExperiment object, we can construct a DESeqDataSet object from it that will then form the starting point of the analysis. We add an appropriate design for the analysis:
+```{r}
+library("DESeq2")
+dds <- DESeqDataSet(gse, design = ~ cell + dex)
+```
+
+```{r}
+countdata <- round(assays(gse)[["counts"]])
+head(countdata, 3)
+```
+
+```{r}
+coldata <- colData(gse)
+```
+
+Constructing the DESeqDataSet
+```{r}
+ddsMat <- DESeqDataSetFromMatrix(countData = countdata,
+                                 colData = coldata,
+                                 design = ~ cell + dex)
+```
+4.1
+Pre-filtering the dataset
+```{r}
+nrow(dds)
+```
+```{r}
+keep <- rowSums(counts(dds)) > 1
+dds <- dds[keep,]
+nrow(dds)
+```
+Filter at least 3 samples with a count of 10 or higher
+```{r}
+keep <- rowSums(counts(dds) >= 10) >= 3
+```
+
+```{r}
+lambda <- 10^seq(from = -1, to = 2, length = 1000)
+cts <- matrix(rpois(1000*100, lambda), ncol = 100)
+library("vsn")
+meanSdPlot(cts, ranks = FALSE)
+```
+
+```{r}
+log.cts.one <- log2(cts + 1)
+meanSdPlot(log.cts.one, ranks = FALSE)
+```
+
+```{r}
+vsd <- vst(dds, blind = FALSE)
+head(assay(vsd), 3)
+```
+```{r}
+colData(vsd)
+
+```
+
+```{r}
+rld <- rlog(dds, blind = FALSE)
+head(assay(rld), 3)
+```
+
+```{r}
+library("dplyr")
+library("ggplot2")
+
+dds <- estimateSizeFactors(dds)
+
+df <- bind_rows(
+  as_data_frame(log2(counts(dds, normalized=TRUE)[, 1:2]+1)) %>%
+    mutate(transformation = "log2(x + 1)"),
+  as_data_frame(assay(vsd)[, 1:2]) %>% mutate(transformation = "vst"),
+  as_data_frame(assay(rld)[, 1:2]) %>% mutate(transformation = "rlog"))
+
+colnames(df)[1:2] <- c("x", "y")  
+
+ggplot(df, aes(x = x, y = y)) + geom_hex(bins = 80) +
+  coord_fixed() + facet_grid( . ~ transformation)  
+```
+
+We use the R function dist to calculate the Euclidean distance between samples.
+```{r}
+sampleDists <- dist(t(assay(vsd)))
+sampleDists
+```
+
+We visualize the distances in a heatmap in a figure below, using the function pheatmap from the pheatmap package.
+```{r}
+library("pheatmap")
+library("RColorBrewer")
+```
+
+```{r}
+sampleDistMatrix <- as.matrix( sampleDists )
+rownames(sampleDistMatrix) <- paste( vsd$dex, vsd$cell, sep = " - " )
+colnames(sampleDistMatrix) <- NULL
+colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+pheatmap(sampleDistMatrix,
+         clustering_distance_rows = sampleDists,
+         clustering_distance_cols = sampleDists,
+         col = colors)
+```
+
+```{r}
+library("PoiClaClu")
+poisd <- PoissonDistance(t(counts(dds)))
+```
+
+```{r}
+samplePoisDistMatrix <- as.matrix( poisd$dd )
+rownames(samplePoisDistMatrix) <- paste( dds$dex, dds$cell, sep=" - " )
+colnames(samplePoisDistMatrix) <- NULL
+pheatmap(samplePoisDistMatrix,
+         clustering_distance_rows = poisd$dd,
+         clustering_distance_cols = poisd$dd,
+         col = colors)
+```
+```{r}
+plotPCA(vsd, intgroup = c("dex", "cell"))
+```
+
+```{r}
+pcaData <- plotPCA(vsd, intgroup = c( "dex", "cell"), returnData = TRUE)
+pcaData
+```
+
+```{r}
+percentVar <- round(100 * attr(pcaData, "percentVar"))
+```
+
+```{r}
+ggplot(pcaData, aes(x = PC1, y = PC2, color = dex, shape = cell)) +
+  geom_point(size =3) +
+  xlab(paste0("PC1: ", percentVar[1], "% variance")) +
+  ylab(paste0("PC2: ", percentVar[2], "% variance")) +
+  coord_fixed() +
+  ggtitle("PCA with VST data")
+```
+
+```{r}
+library("glmpca")
+gpca <- glmpca(counts(dds), L=2)
+gpca.dat <- gpca$factors
+gpca.dat$dex <- dds$dex
+gpca.dat$cell <- dds$cell
+```
+```{r}
+ggplot(gpca.dat, aes(x = dim1, y = dim2, color = dex, shape = cell)) +
+  geom_point(size =3) + coord_fixed() + ggtitle("glmpca - Generalized PCA")
+```
+```{r}
+mds <- as.data.frame(colData(vsd))  %>%
+         cbind(cmdscale(sampleDistMatrix))
+ggplot(mds, aes(x = `1`, y = `2`, color = dex, shape = cell)) +
+  geom_point(size = 3) + coord_fixed() + ggtitle("MDS with VST data")
+```
+```{r}
+mdsPois <- as.data.frame(colData(dds)) %>%
+   cbind(cmdscale(samplePoisDistMatrix))
+ggplot(mdsPois, aes(x = `1`, y = `2`, color = dex, shape = cell)) +
+  geom_point(size = 3) + coord_fixed() + ggtitle("MDS with PoissonDistances")
+```
+

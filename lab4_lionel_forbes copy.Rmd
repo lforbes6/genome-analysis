@@ -1,0 +1,122 @@
+---
+title: "lab4_lionel_forbes"
+author: "Lionel Forbes"
+date: "2/12/2020"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r}
+library(tidyverse)
+```
+
+Load Files 
+```{r}
+SNPs<- read.table("23andMe_complete.txt", header = TRUE, sep = "\t")
+```
+
+To adjust figure size {r, fig.width = 6, fig.height = 6}
+```{r}
+SNPs$chromosome = ordered(SNPs$chromosome, levels=c(seq(1, 22), "X", "Y", "MT"))
+ggplot(data = SNPs) + 
+  geom_bar(mapping = aes(x = genotype, fill = chromosome)) + 
+  coord_polar() +
+  ggtitle("Total SNPs for each genotype") +
+  ylab("Total number of SNPs") +
+  xlab("Genotype")
+```
+
+Plot graph to a pdf outputfile
+```{r}
+pdf("SNP_example_plot.pdf", width=6, height=3)
+ggplot(data = SNPs) + 
+  geom_bar(mapping = aes(x = chromosome, fill = genotype))
+dev.off()
+```
+
+Plot graph to a png outputfile
+```{r}
+ppi <- 300
+png("SNP_example_plot.png", width=6*ppi, height=6*ppi, res=ppi)
+ggplot(data = SNPs) + 
+  geom_bar(mapping = aes(x = chromosome, fill = genotype))
+dev.off()
+```
+
+![Genotype counts per chromosome](SNP_example_plot.png) 
+
+```{r}
+library(plotly)
+p <- ggplot(data = SNPs) + 
+  geom_bar(mapping = aes(x = genotype, fill = chromosome))
+
+ggplotly(p)
+```
+
+Excercise 1
+```{r}
+ggplot(SNPs, aes(x=chromosome)) +
+  geom_bar(fill = "#6666CC", colour = "black") + 
+  labs(title = "Total SNP Count for Each chromosome")
+```
+
+
+Exercise 2
+```{r}
+mycolors <-c("AA"= "red","AC"= "red", "AG"= "red", "AT"= "red", "CC"= "red", "CG"= "red", "CT"= "red", "DD"= "red", "DI"= "red", "GG"= "red", "GT"= "red", "II"= "red", "TT"= "red", "A" = "orange", "C" = "orange", "G" = "orange", "T" = "orange", "I" = "yellow", "D" = "yellow")
+
+ggplot(SNPs, aes(x=chromosome, fill =  genotype)) +
+  geom_bar() +
+  scale_fill_manual(values=c("AA"= "red","AC"= "red", "AG"= "red", "AT"= "red", "CC"= "red", "CG"= "red", "CT"= "red", "DD"= "red", "DI"= "red", "GG"= "red", "GT"= "red", "II"= "red", "TT"= "red", "A" = "orange", "C" = "orange", "G" = "orange", "T" = "orange", "I" = "green", "D" = "green", "--" = "green"))
+```
+
+Exercise 3 
+```{r}
+ppi <- 300
+png("exercise3graph.png", width=6*ppi, height=6*ppi, res=ppi)
+ggplot(SNPs, aes(x=chromosome, fill =  genotype)) +
+  geom_bar(position = "dodge")
+```
+
+```{r}
+pdf("exercise3graph.pdf", width=6, height=3)
+ggplot(SNPs, aes(x=chromosome, fill =  genotype)) +
+  geom_bar(position = "dodge")
+dev.off()
+```
+
+![Individual Genotypes](exercise3graph.png) 
+
+Exercise 4
+```{r}s
+
+ppi <- 2000
+png("lab3_ex6.png", width=20*ppi, height=10*ppi, res=ppi)
+ggplot(SNPs, aes(x=chromosome, fill =  genotype)) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~genotype) +
+  labs(title = "Lab3 ex6") +
+  theme(axis.title.x = element_text(face="bold", colour="#990000", size=20))
+```
+
+![Individual Genotypes](lab3_ex6.png) 
+
+Exercise 5
+```{r}
+# Version 2
+library(plotly)
+ggplotly(
+  ggplot(SNPs, aes(x=chromosome, fill =  genotype)) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~genotype))
+
+```
+
+Exercise 6
+```{r}
+library(DT)
+SNPs_e.g.<- read.table("23andMe_example_cat25.txt", header = TRUE, sep = "\t")
+datatable(SNPs_e.g.)
+```
+

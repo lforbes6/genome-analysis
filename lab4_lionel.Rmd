@@ -1,0 +1,7 @@
+---
+title: "lab3_Lionel_Forbes"
+author: "Lionel Forbes"
+date: "2/10/2020"
+output: ioslides_presentation
+---
+

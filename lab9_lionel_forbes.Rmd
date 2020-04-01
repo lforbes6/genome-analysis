@@ -1,0 +1,223 @@
+---
+title: "lab9_lionel_forbes"
+author: "Lionel Forbes"
+date: "3/25/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(lubridate)
+```
+
+```{r}
+report_03_11_2020 <-   read_csv(url("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/03-11-2020.csv")) %>%
+  rename(Country.Region = "Country/Region", Province.State = "Province/State")
+```
+
+```{r}
+head(report_03_11_2020)
+```
+
+```{r}
+str(report_03_11_2020)
+```
+
+```{r}
+report_03_11_2020 %>% 
+  filter (Country.Region == "US") %>% 
+  ggplot(aes(x = Confirmed,  y = reorder(Province.State, Confirmed))) + 
+    geom_point() +
+    ggtitle("Confirmed cases for each US State") +
+    ylab("Country/Region") +
+    xlab("Confirmed Cases")
+```
+
+```{r}
+report_03_11_2020 %>% 
+  group_by(Country.Region) %>% 
+  summarise(Deaths = sum(Deaths)) %>% 
+  arrange(desc(Deaths))
+```
+
+```{r}
+report_03_11_2020 %>% 
+  group_by(Country.Region) %>% 
+  summarise(Deaths = sum(Deaths)) %>% 
+  arrange(desc(Deaths)) %>% 
+  slice(1:20) %>% 
+  ggplot(aes(x = Deaths,  y = reorder(Country.Region, Deaths))) + 
+    geom_bar(stat = 'identity') +
+    ggtitle("The 20 countries with the most reported COV19-related deaths") +
+    ylab("Country/Region") +
+    xlab("Deaths")
+```
+
+```{r}
+time_series_confirmed <- read_csv(url("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv")) %>%
+  rename(Province.State = "Province/State", Country.Region = "Country/Region")
+```
+
+```{r}
+head(time_series_confirmed)
+```
+
+```{r}
+time_series_confirmed_long <- time_series_confirmed %>% 
+               pivot_longer(-c(Province.State, Country.Region, Lat, Long),
+                            names_to = "Date", values_to = "Confirmed") %>% 
+               group_by(Country.Region,Date) %>% 
+               summarise(Confirmed = sum(Confirmed))
+
+# convert date to data format
+time_series_confirmed_long$Date <- mdy(time_series_confirmed_long$Date)
+```
+
+```{r}
+head(time_series_confirmed_long)
+```
+
+```{r}
+time_series_confirmed_long %>% 
+  filter (Country.Region == "US") %>% 
+    ggplot(aes(x = Date,  y = Confirmed)) + 
+    geom_point() +
+    geom_line() +
+    ggtitle("US Confirmed COVID-19 Cases")
+```
+```{r}
+time_series_confirmed_long %>% 
+  filter (Country.Region %in% c("China","Japan", "Korea, South",
+                                "Italy","Spain", "US")) %>% 
+    ggplot(aes(x = Date,  y = Confirmed)) + 
+    geom_point() +
+    geom_line() +
+    ggtitle("Confirmed COVID-19 Cases") +
+    facet_wrap(~Country.Region, ncol=2, scales="free_y")
+```
+```{r}
+time_series_confirmed_long %>% 
+  filter (Country.Region %in% c("China","France","Italy", 
+                                "Korea, South", "US")) %>% 
+    ggplot(aes(x = Date,  y = Confirmed, color = Country.Region)) + 
+    geom_point() +
+    geom_line() +
+    ggtitle("Confirmed COVID-19 Cases")
+```
+```{r}
+library(maps)
+library(viridis)
+```
+
+```{r}
+world <- map_data("world")
+```
+
+```{r}
+mybreaks <- c(1, 20, 100, 1000, 50000)
+```
+
+```{r}
+ggplot() +
+  geom_polygon(data = world, aes(x=long, y = lat, group = group), fill="grey", alpha=0.3) +
+  geom_point(data=time_series_confirmed, aes(x=Long, y=Lat, size=`2/25/20`, color=`2/25/20`),stroke=F, alpha=0.7) +
+  scale_size_continuous(name="Cases", trans="log", range=c(1,7),breaks=mybreaks, labels = c("1-19", "20-99", "100-999", "1,000-49,999", "50,000+")) +
+  # scale_alpha_continuous(name="Cases", trans="log", range=c(0.1, 0.9),breaks=mybreaks) +
+  scale_color_viridis_c(option="inferno",name="Cases", trans="log",breaks=mybreaks, labels = c("1-19", "20-99", "100-999", "1,000-49,999", "50,000+")) +
+  theme_void() + 
+  guides( colour = guide_legend()) +
+  labs(caption = "") +
+  theme(
+    legend.position = "bottom",
+    text = element_text(color = "#22211d"),
+    plot.background = element_rect(fill = "#ffffff", color = NA), 
+    panel.background = element_rect(fill = "#ffffff", color = NA), 
+    legend.background = element_rect(fill = "#ffffff", color = NA)
+  )
+```
+```{r}
+time_series_confirmed_long2 <- read_csv(url("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv")) %>%
+    rename(Province.State = "Province/State", Country.Region = "Country/Region") %>%
+    pivot_longer(-c(Province.State, Country.Region, Lat, Long),
+    names_to = "Date", values_to = "cumulative_cases") %>%
+    mutate(Date = mdy(Date) - days(1),
+        Place = paste(Lat,Long,sep="_")) %>%
+    group_by(Place,Date) %>%
+        summarise(cumulative_cases = ifelse(sum(cumulative_cases)>0,
+        sum(cumulative_cases),NA_real_),
+        Lat = mean(Lat),
+        Long = mean(Long)) %>%
+    mutate(Pandemic_day = as.numeric(Date - min(Date)))
+```
+```{r}
+head(time_series_confirmed_long2)
+```
+
+```{r}
+static <- ggplot(subset(time_series_confirmed_long2,Date %in% seq(min(Date),max(Date),7)),
+            aes(x = Long, y = Lat, size = cumulative_cases/1000)) +
+            borders("world", colour = NA, fill = "grey90") +
+            theme_bw() +
+            geom_point(shape = 21, color='purple', fill='purple', alpha = 0.5) +
+            labs(title = 'COVID-19 spread',x = '', y = '',
+                 size="Cases (x1000))") +
+            theme(legend.position = "right") +
+            coord_fixed(ratio=1)+
+            facet_wrap(.~Date,nrow=3)
+static
+```
+
+
+Exercise:
+
+```{r}
+report_03_10_2020 <-   read_csv(url("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/03-11-2020.csv")) %>%
+  rename(Country.Region = "Country/Region", Province.State = "Province/State")
+```
+
+
+```{r}
+report_03_10_2020 %>% 
+    filter (Country.Region == "China") %>% 
+  ggplot(aes(x = Recovered,  y = reorder(Province.State, Recovered))) + 
+    geom_point() +
+    ggtitle("Cases recovered in each Chinses Province") +
+    ylab("Province") +
+    xlab("Recovered")
+```
+```{r}
+time_series_recovered <- read_csv(url("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_recovered_global.csv")) %>%
+  rename(Province.State = "Province/State", Country.Region = "Country/Region")
+```
+
+
+```{r}
+head(time_series_recovered)
+```
+```{r}
+time_series_recovered_long <- time_series_recovered %>% 
+               pivot_longer(-c(Province.State, Country.Region, Lat, Long),
+                            names_to = "Date", values_to = "Recovered") %>% 
+               group_by(Country.Region,Date) %>% 
+               summarise(Recovered = sum(Recovered))
+
+# convert date to data format
+time_series_recovered_long$Date <- mdy(time_series_recovered_long$Date)
+```
+
+```{r}
+time_series_recovered_long %>% 
+  filter (Country.Region == "Italy") %>% 
+    ggplot(aes(x = Date,  y = Recovered)) + 
+    geom_point() +
+    geom_line() +
+    ggtitle("Complete Recovory of COVID-19 Cases in Italy ")
+```
+
+
+
+
